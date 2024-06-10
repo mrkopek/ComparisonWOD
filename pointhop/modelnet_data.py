@@ -107,13 +107,13 @@ def data_load(num_point=None, data_dir='/modelnet40_ply_hdf5_2048', train=True):
 
 def load_rgbd_data(trail,istrain):
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATA_DIR=os.path.join(BASE_DIR,"./wod_1024/wod_1024.h5")
+    DATA_DIR=os.path.join(BASE_DIR,"../data/wod/wod_1024.h5")
     
-    f=h5py.File("./wod_1024/wod_1024.h5","r+")
+    f=h5py.File(DATA_DIR,"r+")
     train_data = f["pointcloud"][:].astype("float32")
     instancelabel=f["instances"][:].astype("str")
     label=f["labels"][:].astype("str")
-    testinstances=pd.read_csv("./wod_1024/testinstances2.csv",delimiter=";",header=None).transpose()
+    testinstances=pd.read_csv(os.path.join(BASE_DIR,"./wod_1024/testinstances2.csv"),delimiter=";",header=None).transpose()
 
 
     this_testinstance=testinstances.values[trail]
