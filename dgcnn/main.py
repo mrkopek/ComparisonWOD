@@ -16,7 +16,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from data import ModelNet40
 from data import WashingtonDataset
 from model import PointNet, DGCNN
 import numpy as np
@@ -38,18 +37,20 @@ def _init_():
     os.system('cp data.py checkpoints' + '/' + args.exp_name + '/' + 'data.py.backup')
 
 def train(args, io, trail1):
+    model = DGCNN(args,51)
     if args.dataset=="modelnet40":
-        train_loader = DataLoader(ModelNet40(partition='train', num_points=args.num_points), num_workers=8,
-                                batch_size=args.batch_size, shuffle=True, drop_last=True)
-        test_loader = DataLoader(ModelNet40(partition='test', num_points=args.num_points), num_workers=8,
-                                batch_size=args.test_batch_size, shuffle=True, drop_last=False)
+        #train_loader = DataLoader(ModelNet40(partition='train', num_points=args.num_points), num_workers=8,
+        #                        batch_size=args.batch_size, shuffle=True, drop_last=True)
+        #test_loader = DataLoader(ModelNet40(partition='test', num_points=args.num_points), num_workers=8,
+        #                        batch_size=args.test_batch_size, shuffle=True, drop_last=False)
         outputchannels=40
     elif args.dataset=="washington":
-        train_loader = DataLoader(WashingtonDataset(partition='train',trail=trail1), num_workers=8,
-                                batch_size=args.batch_size, shuffle=True, drop_last=True)
-        test_loader = DataLoader(WashingtonDataset(partition='test',trail=trail1), num_workers=8,
-                                batch_size=args.test_batch_size, shuffle=True, drop_last=False)
-        outputchannels=10
+        outputchannels=51
+        train_loader = DataLoader(WashingtonDataset(partition='train',trail=trail1,limit_class=outputchannels), num_workers=8,
+                               batch_size=args.batch_size, shuffle=True, drop_last=True)
+        test_loader = DataLoader(WashingtonDataset(partition='test',trail=trail1,limit_class=outputchannels), num_workers=8,
+                               batch_size=args.test_batch_size, shuffle=True, drop_last=False)
+        
     device = torch.device("cuda" if args.cuda else "cpu")
 
     #Try to load models
@@ -57,6 +58,7 @@ def train(args, io, trail1):
         model = PointNet(args,outputchannels).to(device)
     elif args.model == 'dgcnn':
         model = DGCNN(args,outputchannels).to(device)
+        
     else:
         raise Exception("Not implemented")
     print(str(model))
@@ -142,11 +144,13 @@ def train(args, io, trail1):
         io.cprint(outstr)
         if test_acc >= best_test_acc:
             best_test_acc = test_acc
-            torch.save(model.state_dict(), 'checkpoints/%s/models/model%s.t7' % args.exp_name % trail1)
+            torch.save(model.state_dict(), 'model_dgcnn.t7')
     return acc
 
 
 def test(args, io):
+    model = PointNet(args,51)
+    param_size =sum(p.numel() for p in model.parameters() if p.requires_grad)
     label_file_path="testtrial0_labels.txt"
     output_file_path="testtrial0_outputs.txt"
     test_loader = DataLoader(WashingtonDataset(partition='test',trail=0), num_workers=8,
@@ -181,11 +185,6 @@ def test(args, io):
     test_acc = metrics.accuracy_score(test_true, test_pred)
     avg_per_class_acc = metrics.balanced_accuracy_score(test_true, test_pred)
     
-    for k in range(10):
-        plt.subplot(10,1,k+1)
-        plt.plot(outputs.transpose(1,0)[k])
-
-    plt.show()
 
     outstr = 'Test :: test acc: %.6f, test avg acc: %.6f'%(test_acc, avg_per_class_acc)
     io.cprint(outstr)
@@ -217,7 +216,7 @@ if __name__ == "__main__":
                         help='enables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--eval', type=bool,  default=True,
+    parser.add_argument('--eval', type=bool,  default=False,
                         help='evaluate the model')
     parser.add_argument('--num_points', type=int, default=1024,
                         help='num of points to use')

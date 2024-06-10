@@ -45,21 +45,21 @@ def train(args, io, trail1):
                                 batch_size=args.test_batch_size, shuffle=True, drop_last=False)
         outputchannels=40
     elif args.dataset=="washington":
-        train_loader = DataLoader(WashingtonDataset(partition='train',trail=trail1), num_workers=8,
+        train_loader = DataLoader(WashingtonDataset(partition='train',trail=trail1,limit_class=51), num_workers=8,
                                 batch_size=args.batch_size, shuffle=True, drop_last=True)
-        test_loader = DataLoader(WashingtonDataset(partition='test',trail=trail1), num_workers=8,
+        test_loader = DataLoader(WashingtonDataset(partition='test',trail=trail1,limit_class=51), num_workers=8,
                                 batch_size=args.test_batch_size, shuffle=True, drop_last=False)
     
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    #Try to load models
+    #Try to load models change the output channels number to trained models output numbers
 
-    model = DGCNN(args,output_channels=10).to(device)
+    model = DGCNN(args,output_channels=51).to(device)
 
 
 
     model = nn.DataParallel(model)
-    model.load_state_dict(torch.load("checkpoints\exp\models\model.t7"))
+    model.load_state_dict(torch.load("model.t7"))
 
     model.module.linear3=nn.Linear(256,51)
     model.to(device)

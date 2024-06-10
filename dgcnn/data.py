@@ -79,8 +79,8 @@ class ModelNet40(Dataset):
         return self.data.shape[0]
 
 class WashingtonDataset(Dataset):
-    def __init__(self, partition,trail):
-        self.data, self.label = load_rgbd_data(trail,partition=="train")
+    def __init__(self, partition,trail,limit_class):
+        self.data, self.label = load_rgbd_data(trail,partition=="train",limit_class)
         self.num_points = 256
         self.partition = partition        
 
@@ -96,34 +96,34 @@ class WashingtonDataset(Dataset):
         return self.data.shape[0]
     
 
-def load_rgbd_data(trail,istrain):
+def load_rgbd_data(trail,istrain,class_num):
+    
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATA_DIR = os.path.join(BASE_DIR, 'data\\rgbd_data')
-    data_x=np.loadtxt("rgbd_subset_256_x")
-    data_y=np.loadtxt("rgbd_subset_256_y")
-    data_z=np.loadtxt("rgbd_subset_256_z")
-    label=np.loadtxt("rgbd_subset_256_labelc")
-    instancelabel=pd.read_csv("rgbd_subset_256_labeli",header=None).transpose()
-    testinstances=pd.read_csv("testinstances2.csv",delimiter=";",header=None).transpose()
-    train_data = np.array([data_x,data_y,data_z])
-    train_data=train_data.transpose(1,2,0)
-
+    DATA_DIR=os.path.join(BASE_DIR,"../../data/wod/wod_1024.h5")
+    
+    f=h5py.File(DATA_DIR,"r+")
+    train_data = f["pointcloud"][:].astype("float32")
+    instancelabel=f["instances"][:].astype("str")
+    label=f["labels"][:].astype("str")
+    
+    testinstances=pd.read_csv(os.path.join(BASE_DIR,"../../data/wod/testinstances2.csv"),delimiter=";",header=None).transpose()
     this_testinstance=testinstances.values[trail]
-    label = label-1
-    label_shrink=np.isin(label,range(51))
-    label=label[label_shrink]
-    train_data=train_data[label_shrink]
+    numericlabel=[]
+    lastlabel=label[0]
+    count=0
+    for k in label:
+        if(k!=lastlabel):
+            count=count+1
+            lastlabel=k
+        numericlabel.append(count)
     
-    label = torch.Tensor(label).type(torch.int64)
-    
+    label = torch.from_numpy(np.array(numericlabel)).type(torch.int64)
+   
     label=label.transpose(-1,0)
-    
+    instancelabel=pd.DataFrame(instancelabel)
     test_instancelabel =instancelabel.isin(this_testinstance).values
     test_instancelabel = test_instancelabel.flatten()
     
-    test_instancelabel=test_instancelabel[label_shrink]
-
-    train_data=train_data.astype("float32")
     test_data = train_data [test_instancelabel]
     train_data = train_data[~test_instancelabel]
     test_label = label[test_instancelabel]
